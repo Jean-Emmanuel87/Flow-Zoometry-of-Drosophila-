@@ -1,0 +1,128 @@
+% Main Script for Wing Disc Segmentation, Feature Extraction, and Modeling
+%
+% Overview:
+% This script executes the comprehensive pipeline from raw data preprocessing to
+% wing disc segmentation and classification using a random forest classifier. It is
+% designed to support the analysis outlined in the research findings published in
+% the paper "Flow Zoometry of Drosophila" in Nature.
+%
+% Author and Contributor:
+% Jean-Emmanuel Clement is responsible for designing, developing, and testing 
+% Method 2, which includes image preprocessing, wing disc region segmentation,
+% feature extraction, and classification using a Random Forest classifier. This method
+% is validated through a nested k-replicate cross-validation across six measurement dates.
+%
+% Usage of External Toolbox:
+% This script utilizes the MRIDesnoisingPackage [1], which is under copyright.
+% It is employed here for academic purposes. Users of this script are advised to
+% ensure compliance with the toolbox's license for their specific use case.
+%
+% Reference:
+% [1] J. V. Manjon, P. Coupé, A. Buades, D. L. Collins, M. Robles. New Methods for MRI Denoising
+%     based on Sparseness and Self-Similarity. Medical Image Analysis, 16(1): 18-27, 2012.
+
+
+% Go to main directory
+%pathMain
+% Initialize the current directory
+currentDir = pwd;
+
+% Loop to move up in the directory structure until you find the 'code_for_publication' directory or reach the root
+while true
+    % Check if the 'main' directory exists in the current directory
+    codeDir = fullfile(currentDir, 'main');
+    if exist(codeDir, 'dir')
+        cd(codeDir);
+        disp(['Changed directory to: ' codeDir]);
+        break;
+    else
+        % Check if the current directory is 'code_for_publication'
+        [parentDir, currentFolderName, ~] = fileparts(currentDir);
+        if strcmp(currentFolderName, 'code_for_publication')
+            error(['The directory ' codeDir ' does not exist.']);
+        elseif isempty(parentDir) || strcmp(currentDir, parentDir)  % Check if we've reached the root
+            error('Reached the root directory without finding ''code_for_publication''.');
+        end
+        % Update currentDir to move one level up
+        currentDir = parentDir;
+    end
+end
+
+
+addpath(pwd)
+
+
+% Add necessary libraries
+addLibraryV1;
+
+% Activate parallel computing if it's not already active
+if isempty(gcp('nocreate'))
+    parpool;
+end
+
+%  Define the base paths and categories for data processing
+datePattern = '\d{8}';
+basePreprocessPath = fullfile('..','Segmented_data1');
+baseDir = '..\Raw_data';  % Define the base directory where the data are stored
+categories = {'noncancer', '4hit'};  % Define the categories
+directories = generateDirectories(baseDir, categories); 
+
+
+% Store the initial directory to return to it after processing each dataset
+initialDir = pwd;
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%Full pipeline to segment wing disc in each directory 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+ for d = 1:length(directories)
+
+    % obtain the path for each measruement date and phenotype to preprocess 
+    [folderPath1] = processDirectory(directories{d}, codeDir, categories, datePattern, basePreprocessPath);
+
+    % Opening filenames
+    [numFiles, filteredFileNames] = open_files_larva;
+   
+    % Execute preprocessing steps
+    disp('Preprocessing in progress...');
+    [K, K1, K2, K3, K4, K5,K6] = preprocessing(numFiles, filteredFileNames);
+
+    % Postprocessing
+    [K8, K9] = run_postprocessing(K5, K4, numFiles);
+    
+    %% Return to the initial directory after processing
+    cd(initialDir);
+    
+    % check if some files should be removed before saving .h5 file
+    remove_existing_h5_files(folderPath1);
+
+    % Save the processed data to .h5 files
+    save_processed_data(K9, folderPath1, filteredFileNames, numFiles);
+
+ end
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%End pipeline to segment wing disc in each directory 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+path_modeling
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%pipeline to extract feature from segmented wing disc in each directory 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+main_folder_path = '../Segmented_data1'; % Adjust this to the path where your data is stored
+datasetName = '/dataset_1'; % HDF5 dataset name
+target_phenotypes = {'noncancer', '4hit'}; % Target phenotypes to process
+%savePath = 'D:\project_flying_drosophile\code_for_publication\main_modeling'; % Path to save the output CSV
+
+% Call the function to create a feature table from the segmented data
+
+%table_data = createFeatureTable(main_folder_path, datasetName, target_phenotypes, savePath);
+table_data = createFeatureTable(main_folder_path, datasetName, target_phenotypes);
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Nested k-replicate CV + modeling with random forest
+% This function trains and evaluates a random forest model using the extracted features
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+[accuracy, precision, recall, F1_score, AUC, MCC, TSS, kappa, bestParams, Xroc_cells, Yroc_cells, Xprec_cells, Yprec_cells, internalFoldAccuracies]...
+    = trainAndEvaluateModel(table_data);
+   

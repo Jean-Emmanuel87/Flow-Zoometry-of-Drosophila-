@@ -1,0 +1,128 @@
+%%%%%%%%%main function
+codeDir = fullfile(pwd, 'main');
+
+% Check if the 'code' directory exists
+if exist(codeDir, 'dir')
+    % Change the current working directory to 'code'
+    cd(codeDir);
+    disp(['Changed directory to: ' codeDir]);
+else
+    % If the 'code' directory does not exist, display an error message
+    error(['The directory ' codeDir ' does not exist.']);
+end
+
+
+%%%%%function that adds the library
+add_library_vf1
+
+%%%%%Activate  parralel computing
+if isempty(gcp('nocreate'))
+parpool;
+end
+
+categories = {'4hits', 'noncan'};
+
+% Regular expression pattern to match date format YYYYMMDD
+datePattern = '\d{8}';
+
+directories = {
+    '..\Data\noncan\20231120',
+    '..\Data\4hit\20231120'
+};
+
+% Loop through each directory
+for d = 1:length(directories)
+    % Change to the directory
+    %cd(directories{d});
+
+
+    pathParts = strsplit(directories{d}, filesep);
+%%%%%%%to create the path
+ category = '';
+ datePart = '';
+    
+    % Check if any part of the path matches the defined categories
+    % Start with more specific categories to ensure they are prioritized
+    for i = 1:length(pathParts)
+        for j = 1:length(categories)
+            if contains(pathParts{i}, categories{j})
+                category = categories{j};
+                break; % Exit the inner loop once the category is found
+            end
+        end
+        if ~isempty(category)
+            break; % Exit the outer loop once the category is assigned
+        end
+    end
+    
+    % Ensure we default to a generic category if none is found
+    if isempty(category)
+        category = 'generic';
+    end
+
+ % Check each part of the path to find the category and date
+    for i = 1:length(pathParts)
+        if any(strcmp(pathParts{i}, categories))
+            category = pathParts{i};
+            % Special handling for '4hits_C9' to be recognized as 'C9'
+%             if strcmp(category, '4hits_C9')
+%                 category = 'C9';
+%             end
+        end
+        % Check if the part matches the date pattern
+        if isempty(datePart) && ~isempty(regexp(pathParts{i}, datePattern, 'once'))
+            datePart = pathParts{i};
+        end
+    end
+    
+    % Define the base folder path for preprocessing data
+    basePreprocessPath = fullfile('..', 'Segmeted_data');
+
+      
+    % Create the full path including the category and date
+    folderPath1 = fullfile(basePreprocessPath, category, datePart);
+    
+    % Check if the folder exists, if not, create it
+    if ~exist(folderPath1, 'dir')
+        mkdir(folderPath1);
+    end
+    
+    % Change to the directory
+    cd(directories{d});
+
+
+
+
+
+%%%%opening filenames
+[numFiles,filteredFileNames] = open_files_larva;
+
+%%%%%%%%Preprocessing
+disp('preprocessing in progress...')
+[K,K1,K2,K3,K4,K5] = preprocessing(numFiles,filteredFileNames);
+
+pathParts = strsplit(directories{1}, filesep);
+condition = pathParts{end-1}; % 
+    datePart = pathParts{end}; %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+for l1 = 1:numFiles
+    temp_seg = K5{l1}>0;
+    %save_small_volume(K6{i},folderPath,filteredFileNames{i});
+    %save_data_file(double(temp_seg),folderPath1,filteredFileNames{l1})
+end
+end
+
+%%%%%%%%%%Postprocessing
+disp('postprocessing in progress...')
+K8 = first_segment_filter(K5,numFiles);
+K9 = second_label_filtering(K8,K4,numFiles);
+
+
+folderPath1 = 'C:\Users\J.E.Clement\FLYWORKS Dropbox\ptc.mcherry\20mWpower_affined\jean_preprocess_data_v4_drug_screening\Tram\20240306'
+
+
+%%%%%%%%%by waiting to make the code working
+for l1 = 1:numFiles
+    save_data_file(double((K9{l1}>0)),folderPath1,filteredFileNames{l1})
+end
+
