@@ -10,9 +10,12 @@ https://sites.google.com/site/pierrickcoupe/softwares/denoising/mri-denoising/mr
 This toolbox is for personal used or adacdemic use only . 
 if you use it please cite the paper J. V. Manjon, P. Coupé, A. Buades, D. L. Collins, M. Robles. New Methods for MRI Denoising based on Sparseness and Self-Similarity. Medical Image Analysis, 16(1): 18-27, 2012.
 
-- Step 1 : Put the MRI denoising software in in the folder segmentation_utils.
+- Step 1 : Put the MRI denoising software in the folder segmentation_utils.
 - Step 2 :  Inside the folder "Raw_data," create subfolders for each phenotype.
  Within each phenotype's folder, create subfolders based on the date. The format chosen for the date should be  YYYYMMDD.
 - Step 3 : Insert the raw .h5 data in each corresponding subfolder.
-- Step 4 : Go to the main folder and run clean_code_main_workflow1.m
-- Step 4 : Single cell spectra are plotted in folder figure
+- Step 4 : Go to the main folder and run clean_code_main_workflow1.m.
+  this will execute the segmentation of the wing disc for each larvae present in the raw_dat folder, followed by the clasficiation of the phenotype (4hit/noncabcer)
+
+
+Note : matlab toolbox dependancy : Image Processing Toolbox & Parallel Computing Toolbox   & Statistics and Machine Learning Toolbox  
